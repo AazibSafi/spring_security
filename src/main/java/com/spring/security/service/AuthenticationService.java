@@ -19,6 +19,8 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.security.NoSuchAlgorithmException;
+import java.security.spec.InvalidKeySpecException;
 
 @Slf4j
 @Service
@@ -35,7 +37,7 @@ public class AuthenticationService {
         this.tokenProvider = tokenProvider;
     }
 
-    public AuthenticationResponse authenticateUser(AuthenticationRequest authenticationRequest) {
+    public AuthenticationResponse authenticateUser(AuthenticationRequest authenticationRequest) throws InvalidKeySpecException, NoSuchAlgorithmException {
         String usernameOrEmail = Helper.getOrDefault(authenticationRequest.getUsername(),
                 authenticationRequest.getEmail());
         Authentication authentication = authenticationManager.authenticate(new
@@ -53,7 +55,7 @@ public class AuthenticationService {
         SecurityContextHolder.clearContext();
     }
 
-    public AuthenticationResponse refreshToken(HttpServletRequest httpRequest) {
+    public AuthenticationResponse refreshToken(HttpServletRequest httpRequest) throws InvalidKeySpecException, NoSuchAlgorithmException {
         String token = tokenProvider.getJwtFromRequest(httpRequest);
         Claims claims = tokenProvider.getAllClaimsFromToken(token);
         UserPrincipal userPrincipal = tokenProvider.getUserPrincipalFromClaims(claims);

@@ -20,6 +20,8 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.security.NoSuchAlgorithmException;
+import java.security.spec.InvalidKeySpecException;
 
 @Slf4j
 @RestController
@@ -37,7 +39,7 @@ public class AuthenticationController {
         try {
             return authenticationService.authenticateUser(authenticationRequest);
         }
-        catch (BadCredentialsException ex) {
+        catch (BadCredentialsException | InvalidKeySpecException | NoSuchAlgorithmException ex) {
             log.error(String.format("Authentication failed '%s'.", ex.getMessage()));
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, SecurityConstants.BAD_CREDENTIALS_UNAUTHORIZED);
         }
@@ -53,7 +55,7 @@ public class AuthenticationController {
         try {
             return authenticationService.refreshToken(httpRequest);
         }
-        catch (BadCredentialsException ex) {
+        catch (BadCredentialsException | InvalidKeySpecException | NoSuchAlgorithmException ex) {
             log.error(String.format("Refresh Token failed '%s'.", ex.getMessage()));
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, SecurityConstants.BAD_CREDENTIALS_UNAUTHORIZED);
         }

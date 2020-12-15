@@ -5,11 +5,9 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.MalformedJwtException;
-import io.jsonwebtoken.SignatureAlgorithm;
-import io.jsonwebtoken.SignatureException;
 import io.jsonwebtoken.UnsupportedJwtException;
-import io.jsonwebtoken.impl.TextCodec;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -20,6 +18,10 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
 import javax.servlet.http.HttpServletRequest;
+import java.security.NoSuchAlgorithmException;
+import java.security.PrivateKey;
+import java.security.PublicKey;
+import java.security.spec.InvalidKeySpecException;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Date;
@@ -34,30 +36,29 @@ import static com.spring.security.security.constants.SecurityConstants.TOKEN_HEA
 @Component
 public class JwtTokenProvider {
 
-    @Value("${app.jwtSecret}")
-    private String jwtSecret;
+    @Autowired
+    private SecretKeyResolver secretKeyResolver;
 
     @Value("${app.jwtExpirationIn}")
     private int jwtExpirationIn;
 
-    public String generateToken(UserPrincipal userPrincipal) {
-        String token = Jwts.builder()
+    public String generateToken(UserPrincipal userPrincipal) throws InvalidKeySpecException, NoSuchAlgorithmException {
+        PrivateKey privateKey = secretKeyResolver.getPrivateKey();
+        return Jwts.builder()
                 .setClaims(createClaimsMap(userPrincipal))
-                .setSubject(userPrincipal.getUsername()).setIssuedAt(new Date())
+                .setSubject(userPrincipal.name()).setIssuedAt(new Date())
                 .setExpiration(new Date(new Date().getTime() + jwtExpirationIn * 1000))
-                .signWith(SignatureAlgorithm.HS512, jwtSecret)
+                .signWith(privateKey)
                 .compact();
-        log.debug("New Token Generated: "+token);
-        return token;
     }
-
 
     public boolean validateToken(String authToken) {
         try {
-            Jwts.parser().setSigningKey(TextCodec.BASE64.encode(jwtSecret)).parseClaimsJws(authToken);
+            PublicKey publicKey = secretKeyResolver.getPublicKey();
+            Jwts.parserBuilder().setSigningKey(publicKey).build().parseClaimsJws(authToken);
             return true;
-        } catch (SignatureException ex) {
-            log.error("Invalid JWT signature");
+        } catch (NoSuchAlgorithmException | InvalidKeySpecException e) {
+            log.error(e.getMessage());
         } catch (MalformedJwtException ex) {
             log.error("Invalid JWT token");
         } catch (ExpiredJwtException ex) {
@@ -118,7 +119,8 @@ public class JwtTokenProvider {
     public Claims getAllClaimsFromToken(String token) {
         Claims claims;
         try {
-            claims = Jwts.parser().setSigningKey(jwtSecret).parseClaimsJws(token).getBody();
+            PublicKey publicKey = secretKeyResolver.getPublicKey();
+            claims = Jwts.parserBuilder().setSigningKey(publicKey).build().parseClaimsJws(token).getBody();
         }
         catch (Exception ex) {
             log.error(String.format("Error occurred when getting the claims from token'%s'.", ex.getMessage()));
